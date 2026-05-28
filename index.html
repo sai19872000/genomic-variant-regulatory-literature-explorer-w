@@ -1,32 +1,837 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
-<meta charset="utf-8">
-<title>auracle · cockpit</title>
-<meta name="viewport" content="width=1280">
-<link rel="icon" href="aura-mark.svg" type="image/svg+xml">
-<link rel="stylesheet" href="tokens.css">
-<link rel="stylesheet" href="cockpit.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genora - Genomic Variant Explorer</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- React and ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel Standalone for live compilation -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        /* CSS variables for Aura Theme */
+        :root {
+            --bg-dark: #0B0F19;
+            --panel-bg: #161F30;
+            --panel-border: rgba(138, 182, 255, 0.15);
+            --accent-glow: #8AB6FF;
+            --accent-glow-subtle: rgba(138, 182, 255, 0.3);
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0AEC0;
+            --mint-green: #6EE7C1;
+            --coral-red: #FF7B6E;
+            --golden-orange: #FFB347;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #253550;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-glow);
+        }
+
+        /* Glassmorphism panel styling */
+        .glass-panel {
+            background: rgba(22, 31, 48, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(138, 182, 255, 0.35);
+            box-shadow: 0 10px 40px 0 rgba(138, 182, 255, 0.1);
+        }
+
+        .glow-border {
+            border: 1px solid var(--accent-glow);
+            box-shadow: 0 0 15px var(--accent-glow-subtle);
+        }
+
+        /* Tab buttons */
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-radius: 8px;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(138, 182, 255, 0.05);
+        }
+
+        .tab-btn.active {
+            color: var(--bg-dark);
+            background: var(--accent-glow);
+            box-shadow: 0 0 15px var(--accent-glow);
+            font-weight: 600;
+        }
+
+        /* Pathogenicity colors */
+        .patho-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: inline-block;
+        }
+
+        .patho-pathogenic {
+            background-color: rgba(255, 123, 110, 0.15);
+            color: var(--coral-red);
+            border: 1px solid rgba(255, 123, 110, 0.3);
+            box-shadow: 0 0 10px rgba(255, 123, 110, 0.15);
+        }
+
+        .patho-benign {
+            background-color: rgba(110, 231, 193, 0.15);
+            color: var(--mint-green);
+            border: 1px solid rgba(110, 231, 193, 0.3);
+            box-shadow: 0 0 10px rgba(110, 231, 193, 0.15);
+        }
+
+        .patho-vus {
+            background-color: rgba(255, 179, 71, 0.15);
+            color: var(--golden-orange);
+            border: 1px solid rgba(255, 179, 71, 0.3);
+            box-shadow: 0 0 10px rgba(255, 179, 71, 0.15);
+        }
+
+        /* Micro-animations */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.8; }
+        }
+
+        .glow-node {
+            animation: pulse 2.5s infinite ease-in-out;
+        }
+
+        .suggestion-chip {
+            background: rgba(22, 31, 48, 0.6);
+            border: 1px solid var(--panel-border);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .suggestion-chip:hover {
+            border-color: var(--accent-glow);
+            background: rgba(138, 182, 255, 0.1);
+            transform: translateY(-2px);
+        }
+    </style>
 </head>
 <body>
-<div id="root"></div>
+    <div id="root"></div>
 
-<!-- React + Babel (pinned) -->
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-<!-- mock data first (plain JS, no JSX) -->
-<script src="mock-data.js"></script>
+        // Custom Pathogenicity styling resolver
+        function getPathoClass(sig) {
+            const s = sig.toLowerCase();
+            if (s.includes("pathogenic")) return "patho-pathogenic";
+            if (s.includes("benign")) return "patho-benign";
+            return "patho-vus";
+        }
 
-<!-- Tweaks helper -->
-<script type="text/babel" src="tweaks-panel.jsx"></script>
+        // Header Component
+        function Header({ onSearch, loading }) {
+            const [query, setQuery] = useState("");
+            
+            const handleSearchSubmit = (e) => {
+                e.preventDefault();
+                if (query.trim()) {
+                    onSearch(query.trim());
+                }
+            };
 
-<!-- shared primitives, then inspector, then views, then app -->
-<script type="text/babel" src="components.jsx"></script>
-<script type="text/babel" src="inspector.jsx"></script>
-<script type="text/babel" src="views.jsx"></script>
-<script type="text/babel" src="app.jsx"></script>
+            const handleSuggestionClick = (term) => {
+                setQuery(term);
+                onSearch(term);
+            };
 
+            return (
+                <header style={{
+                    padding: '24px 40px',
+                    borderBottom: '1px solid var(--panel-border)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    background: 'linear-gradient(180deg, rgba(22,31,48,0.4) 0%, rgba(11,15,25,0) 100%)'
+                }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{
+                                width: '40px',
+                                height: '40px',
+                                borderRadius: '10px',
+                                backgroundColor: 'var(--accent-glow)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: '0 0 15px var(--accent-glow)'
+                            }}>
+                                <i className="fa-solid fa-helix" style={{ color: '#0B0F19', fontSize: '1.4rem' }}></i>
+                            </div>
+                            <div>
+                                <h1 style={{ fontSize: '1.8rem', fontWeight: '700', letterSpacing: '-0.02em', background: 'linear-gradient(90deg, #FFFFFF 0%, #8AB6FF 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>GENORA</h1>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '500' }}>Genomic Variant Regulatory & Literature Explorer</p>
+                            </div>
+                        </div>
+
+                        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', gap: '10px', width: '100%', maxWidth: '500px' }}>
+                            <div style={{ position: 'relative', flex: 1 }}>
+                                <i className="fa-solid fa-search" style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }}></i>
+                                <input
+                                    type="text"
+                                    value={query}
+                                    onChange={(e) => setQuery(e.target.value)}
+                                    placeholder="Enter variant rsID (e.g. rs334, rs12248560)..."
+                                    style={{
+                                        width: '100%',
+                                        padding: '12px 16px 12px 48px',
+                                        borderRadius: '8px',
+                                        border: '1px solid var(--panel-border)',
+                                        backgroundColor: 'rgba(22, 31, 48, 0.6)',
+                                        color: '#fff',
+                                        fontSize: '0.95rem',
+                                        outline: 'none',
+                                        fontFamily: 'inherit',
+                                        transition: 'all 0.3s'
+                                    }}
+                                    onFocus={(e) => e.target.style.borderColor = 'var(--accent-glow)'}
+                                    onBlur={(e) => e.target.style.borderColor = 'var(--panel-border)'}
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                style={{
+                                    padding: '0 24px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    backgroundColor: 'var(--accent-glow)',
+                                    color: '#0B0F19',
+                                    fontWeight: '600',
+                                    fontSize: '0.95rem',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 0 10px rgba(138, 182, 255, 0.3)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                {loading ? <i className="fa-solid fa-circle-notch fa-spin"></i> : <i className="fa-solid fa-magnifying-glass"></i>}
+                                Search
+                            </button>
+                        </form>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Try searching:</span>
+                        <div className="suggestion-chip" onClick={() => handleSuggestionClick("rs334")}>
+                            <i className="fa-solid fa-dna" style={{ color: 'var(--coral-red)' }}></i> rs334 (HBB)
+                        </div>
+                        <div className="suggestion-chip" onClick={() => handleSuggestionClick("rs12248560")}>
+                            <i className="fa-solid fa-dna" style={{ color: 'var(--mint-green)' }}></i> rs12248560 (CYP2C19)
+                        </div>
+                        <div className="suggestion-chip" onClick={() => handleSuggestionClick("rs429358")}>
+                            <i className="fa-solid fa-dna" style={{ color: 'var(--golden-orange)' }}></i> rs429358 (APOE)
+                        </div>
+                    </div>
+                </header>
+            );
+        }
+
+        // Dashboard/Overview Tab
+        function DashboardView({ clinvar, gnomad, regulatory }) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+                    {/* KPI Widget Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px' }}>
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>CLINICAL SIGNIFICANCE</span>
+                            <span className={`patho-badge ${getPathoClass(clinvar.clinical_significance)}`}>
+                                {clinvar.clinical_significance}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Review: {clinvar.review_status}</span>
+                        </div>
+
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>GENE TARGET</span>
+                            <span style={{ fontSize: '1.6rem', fontWeight: '700', color: 'var(--accent-glow)' }}>{clinvar.gene}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Location: {clinvar.chrom}:{clinvar.pos}</span>
+                        </div>
+
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>GLOBAL ALLELE FREQ</span>
+                            <span style={{ fontSize: '1.6rem', fontWeight: '700' }}>{gnomad.global_af}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>gnomAD v4.0 population pool</span>
+                        </div>
+
+                        <div className="glass-panel" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: '600' }}>REGULATORY CLASS</span>
+                            <span style={{ fontSize: '1.2rem', fontWeight: '600', textTransform: 'capitalize' }}>{regulatory.element}</span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>cCRE: {regulatory.cCRE !== 'none' ? regulatory.cCRE : 'Exonic coding'}</span>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '30px' }}>
+                        {/* gnomAD Population Frequency Chart */}
+                        <div className="glass-panel" style={{ padding: '24px' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '10px' }}>
+                                <i className="fa-solid fa-chart-simple" style={{ marginRight: '8px', color: 'var(--accent-glow)' }}></i> gnomAD Population Frequencies
+                            </h3>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {gnomad.populations.map((pop, idx) => (
+                                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                                            <span style={{ fontWeight: '500' }}>{pop.pop}</span>
+                                            <span style={{ fontFamily: 'monospace', fontWeight: '600', color: 'var(--accent-glow)' }}>{(pop.af * 100).toFixed(2)}%</span>
+                                        </div>
+                                        <div style={{ width: '100%', height: '8px', backgroundColor: '#1C293E', borderRadius: '4px', overflow: 'hidden' }}>
+                                            <div style={{
+                                                width: `${Math.min(pop.af * 100 * 3, 100)}%`, // Scale visually for low frequencies
+                                                height: '100%',
+                                                background: 'linear-gradient(90deg, #3B82F6 0%, var(--accent-glow) 100%)',
+                                                borderRadius: '4px',
+                                                boxShadow: '0 0 8px rgba(138, 182, 255, 0.5)'
+                                            }}></div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Regulatory Network Visualization */}
+                        <div className="glass-panel" style={{ padding: '24px' }}>
+                            <h3 style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '20px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '10px' }}>
+                                <i className="fa-solid fa-network-wired" style={{ marginRight: '8px', color: 'var(--accent-glow)' }}></i> cCRE Regulatory Binding Effect
+                            </h3>
+                            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '220px', position: 'relative' }}>
+                                <svg width="360" height="200" viewBox="0 0 360 200">
+                                    {/* Connection lines */}
+                                    <line x1="80" y1="100" x2="180" y2="100" stroke="#253550" strokeWidth="3" />
+                                    <line x1="180" y1="100" x2="280" y2="50" stroke="#253550" strokeWidth="2" strokeDasharray="4" />
+                                    <line x1="180" y1="100" x2="280" y2="150" stroke="#253550" strokeWidth="2" strokeDasharray="4" />
+                                    
+                                    {/* Variant Node */}
+                                    <circle cx="180" cy="100" r="28" fill="#1A2D4A" stroke="var(--accent-glow)" strokeWidth="3" className="glow-node" />
+                                    <text x="180" y="104" fill="#fff" fontSize="11" fontWeight="700" textAnchor="middle">{clinvar.rsid}</text>
+                                    
+                                    {/* Gene Node */}
+                                    <circle cx="80" cy="100" r="24" fill="#1C3831" stroke="var(--mint-green)" strokeWidth="2" />
+                                    <text x="80" y="104" fill="var(--mint-green)" fontSize="11" fontWeight="700" textAnchor="middle">{clinvar.gene}</text>
+
+                                    {/* TF Node 1 */}
+                                    <circle cx="280" cy="50" r="20" fill="#2E243A" stroke="var(--coral-red)" strokeWidth="2" />
+                                    <text x="280" y="54" fill="var(--coral-red)" fontSize="10" fontWeight="700" textAnchor="middle">{regulatory.binding_changes[0]?.tf || 'TF1'}</text>
+
+                                    {/* TF Node 2 */}
+                                    <circle cx="280" cy="150" r="20" fill="#2E2B24" stroke="var(--golden-orange)" strokeWidth="2" />
+                                    <text x="280" y="154" fill="var(--golden-orange)" fontSize="10" fontWeight="700" textAnchor="middle">{regulatory.binding_changes[1]?.tf || 'TF2'}</text>
+                                </svg>
+                                
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: '10px',
+                                    width: '100%',
+                                    textAlign: 'center',
+                                    fontSize: '0.8rem',
+                                    color: 'var(--text-secondary)'
+                                }}>
+                                    Overlaps regulatory cis-element <span style={{ color: '#fff', fontWeight: '600' }}>{regulatory.cCRE !== 'none' ? regulatory.cCRE : 'Coding sequence'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Regulatory TF Details Tab
+        function RegulatoryView({ regulatory }) {
+            return (
+                <div className="glass-panel" style={{ padding: '24px' }}>
+                    <h3 style={{ fontSize: '1.2rem', fontWeight: '700', marginBottom: '20px', color: 'var(--accent-glow)' }}>
+                        <i className="fa-solid fa-fingerprint" style={{ marginRight: '10px' }}></i> Transcription Factor Binding Site (TFBS) Disruption Details
+                    </h3>
+                    <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '0.95rem' }}>
+                        JASPAR position weight matrix score models are matched against the reference genomic sequence and the alternative variant sequence to predict changes in transcription factor binding affinity.
+                    </p>
+
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '2px solid var(--panel-border)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                                    <th style={{ padding: '12px' }}>TRANSCRIPTION FACTOR</th>
+                                    <th style={{ padding: '12px' }}>REF MATRIX SCORE</th>
+                                    <th style={{ padding: '12px' }}>ALT MATRIX SCORE</th>
+                                    <th style={{ padding: '12px' }}>BINDING AFFINITY EFFECT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {regulatory.binding_changes.map((item, idx) => (
+                                    <tr key={idx} style={{ borderBottom: '1px solid var(--panel-border)', fontSize: '0.95rem' }}>
+                                        <td style={{ padding: '16px 12px', fontWeight: '600', color: 'var(--text-primary)' }}>{item.tf}</td>
+                                        <td style={{ padding: '16px 12px', fontFamily: 'monospace' }}>{item.ref_score}</td>
+                                        <td style={{ padding: '16px 12px', fontFamily: 'monospace' }}>{item.alt_score}</td>
+                                        <td style={{ padding: '16px 12px' }}>
+                                            <span style={{
+                                                padding: '4px 10px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.8rem',
+                                                fontWeight: '600',
+                                                backgroundColor: item.effect === 'disruption' ? 'rgba(255,123,110,0.1)' : (item.effect === 'enhancement' ? 'rgba(110,231,193,0.1)' : 'rgba(255,255,255,0.05)'),
+                                                color: item.effect === 'disruption' ? 'var(--coral-red)' : (item.effect === 'enhancement' ? 'var(--mint-green)' : 'var(--text-secondary)'),
+                                                border: `1px solid ${item.effect === 'disruption' ? 'rgba(255,123,110,0.2)' : (item.effect === 'enhancement' ? 'rgba(110,231,193,0.2)' : 'rgba(255,255,255,0.1)')}`
+                                            }}>
+                                                {item.effect.toUpperCase()}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
+        }
+
+        // Literature Tab
+        function LiteratureView({ papers, onAskAI }) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div className="glass-panel" style={{ padding: '24px' }}>
+                        <h3 style={{ fontSize: '1.2rem', fontWeight: '700', color: 'var(--accent-glow)', marginBottom: '10px' }}>
+                            <i className="fa-solid fa-book-open" style={{ marginRight: '10px' }}></i> PubMed Literary Citations
+                        </h3>
+                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                            Retrieved from NCBI Entrez utilities matching search index parameters. Use the quick-links to view the full details on PubMed or click 'Ask AI' to generate a Gemini literature summary.
+                        </p>
+                    </div>
+
+                    {papers.map((paper, idx) => (
+                        <div key={idx} className="glass-panel" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '20px' }}>
+                                <h4 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#fff', lineHeight: '1.4' }}>{paper.title}</h4>
+                                <a
+                                    href={`https://pubmed.ncbi.nlm.nih.gov/${paper.pmid}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                        fontSize: '0.85rem',
+                                        color: 'var(--accent-glow)',
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        fontWeight: '600',
+                                        border: '1px solid rgba(138, 182, 255, 0.3)',
+                                        padding: '6px 12px',
+                                        borderRadius: '4px',
+                                        transition: 'all 0.2s'
+                                    }}
+                                >
+                                    PMID {paper.pmid} <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '15px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                <span><i className="fa-solid fa-user-pen" style={{ marginRight: '4px' }}></i> {paper.authors}</span>
+                                <span>&bull;</span>
+                                <span><i className="fa-solid fa-newspaper" style={{ marginRight: '4px' }}></i> {paper.journal} ({paper.year})</span>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                <button
+                                    onClick={() => onAskAI(`Summarize the study by ${paper.authors} regarding: "${paper.title}"`)}
+                                    style={{
+                                        backgroundColor: '#1E2D4A',
+                                        border: '1px solid rgba(138, 182, 255, 0.2)',
+                                        color: 'var(--accent-glow)',
+                                        padding: '8px 16px',
+                                        borderRadius: '6px',
+                                        fontSize: '0.9rem',
+                                        fontWeight: '600',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                    }}
+                                >
+                                    <i className="fa-solid fa-wand-magic-sparkles"></i>
+                                    Ask AI to Summarize Study
+                                </button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // Chatbot Tab
+        function ChatView({ variant, clinvar, gnomad, regulatory, papers, messages, setMessages }) {
+            const [input, setInput] = useState("");
+            const [loading, setLoading] = useState(false);
+            const chatEndRef = useRef(null);
+
+            const scrollToBottom = () => {
+                chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            };
+
+            useEffect(() => {
+                scrollToBottom();
+            }, [messages]);
+
+            const handleSend = async (textToSend) => {
+                const text = textToSend || input;
+                if (!text.trim()) return;
+
+                if (!textToSend) setInput("");
+                
+                // Append user message
+                const userMsg = { role: "user", text };
+                setMessages(prev => [...prev, userMsg]);
+                setLoading(true);
+
+                // Collect current annotation context to send to Gemini
+                const context = {
+                    clinvar,
+                    gnomad,
+                    regulatory,
+                    pubmed: papers
+                };
+
+                try {
+                    const response = await fetch("/api/gemini", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            variant,
+                            question: text,
+                            context
+                        })
+                    });
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        setMessages(prev => [...prev, { role: "assistant", text: data.response }]);
+                    } else {
+                        setMessages(prev => [...prev, { role: "assistant", text: `Error: ${data.error}` }]);
+                    }
+                } catch (e) {
+                    setMessages(prev => [...prev, { role: "assistant", text: `Failed to connect: ${e}` }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const suggestions = [
+                `What is the clinical significance of ${variant}?`,
+                `How disruptively does ${variant} alter regulatory TF binding?`,
+                `Summarize key PubMed findings for this variant.`
+            ];
+
+            return (
+                <div className="glass-panel" style={{ height: '500px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    {/* Chat Header */}
+                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--panel-border)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <i className="fa-solid fa-robot" style={{ color: 'var(--accent-glow)', fontSize: '1.2rem' }}></i>
+                        <div>
+                            <h4 style={{ fontWeight: '600' }}>Genora AI Explainer</h4>
+                            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Variant Knowledge Retrieval Engine</p>
+                        </div>
+                    </div>
+
+                    {/* Message Area */}
+                    <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                        {messages.map((msg, idx) => (
+                            <div key={idx} style={{
+                                display: 'flex',
+                                justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
+                                width: '100%'
+                            }}>
+                                <div style={{
+                                    maxWidth: '75%',
+                                    padding: '12px 16px',
+                                    borderRadius: '12px',
+                                    lineHeight: '1.5',
+                                    fontSize: '0.95rem',
+                                    backgroundColor: msg.role === 'user' ? '#1D3B6F' : 'rgba(22, 31, 48, 0.8)',
+                                    color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
+                                    border: msg.role === 'user' ? 'none' : '1px solid var(--panel-border)',
+                                    boxShadow: msg.role === 'user' ? '0 4px 15px rgba(29, 59, 111, 0.2)' : 'none',
+                                    whiteSpace: 'pre-wrap'
+                                }}>
+                                    {msg.text}
+                                </div>
+                            </div>
+                        ))}
+                        {loading && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                <div style={{ padding: '12px 16px', borderRadius: '12px', backgroundColor: 'rgba(22, 31, 48, 0.8)', border: '1px solid var(--panel-border)', display: 'flex', gap: '5px' }}>
+                                    <i className="fa-solid fa-circle fa-bounce" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)' }}></i>
+                                    <i className="fa-solid fa-circle fa-bounce" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', animationDelay: '0.2s' }}></i>
+                                    <i className="fa-solid fa-circle fa-bounce" style={{ fontSize: '0.5rem', color: 'var(--text-secondary)', animationDelay: '0.4s' }}></i>
+                                </div>
+                            </div>
+                        )}
+                        <div ref={chatEndRef} />
+                    </div>
+
+                    {/* Suggestions list */}
+                    {messages.length === 1 && (
+                        <div style={{ padding: '0 20px 10px 20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: '600' }}>SUGGESTED QUESTIONS:</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                {suggestions.map((s, i) => (
+                                    <div key={i} className="suggestion-chip" onClick={() => handleSend(s)}>
+                                        {s}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Input Area */}
+                    <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} style={{ padding: '16px 20px', borderTop: '1px solid var(--panel-border)', display: 'flex', gap: '10px' }}>
+                        <input
+                            type="text"
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            placeholder="Ask Gemini Variant bot a question..."
+                            style={{
+                                flex: 1,
+                                padding: '12px',
+                                borderRadius: '8px',
+                                border: '1px solid var(--panel-border)',
+                                backgroundColor: 'rgba(22, 31, 48, 0.6)',
+                                color: '#fff',
+                                outline: 'none',
+                                fontFamily: 'inherit'
+                            }}
+                            onFocus={(e) => e.target.style.borderColor = 'var(--accent-glow)'}
+                            onBlur={(e) => e.target.style.borderColor = 'var(--panel-border)'}
+                        />
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            style={{
+                                width: '45px',
+                                height: '45px',
+                                borderRadius: '8px',
+                                border: 'none',
+                                backgroundColor: 'var(--accent-glow)',
+                                color: '#0B0F19',
+                                fontSize: '1.1rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 0 10px rgba(138, 182, 255, 0.3)'
+                            }}
+                        >
+                            <i className="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            );
+        }
+
+        // Main App Layout
+        function App() {
+            const [activeTab, setActiveTab] = useState("dashboard");
+            const [variant, setVariant] = useState("rs334");
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState("");
+            
+            // Annotation States
+            const [clinvar, setClinvar] = useState(null);
+            const [gnomad, setGnomad] = useState(null);
+            const [regulatory, setRegulatory] = useState(null);
+            const [papers, setPapers] = useState([]);
+            
+            // Chat Message State
+            const [chatMessages, setChatMessages] = useState([]);
+
+            const fetchVariantData = async (rsid) => {
+                setLoading(true);
+                setError("");
+                
+                try {
+                    // Fetch ClinVar and gnomAD and Regulatory
+                    const [cvRes, gnRes, regRes, pubRes] = await Promise.all([
+                        fetch(`/api/clinvar?variant=${rsid}`),
+                        fetch(`/api/gnomad?variant=${rsid}`),
+                        fetch(`/api/regulatory?variant=${rsid}`),
+                        fetch(`/api/pubmed?variant=${rsid}`)
+                    ]);
+
+                    if (!cvRes.ok || !gnRes.ok || !regRes.ok || !pubRes.ok) {
+                        throw new Error("Variant search returned failed API requests.");
+                    }
+
+                    const cvData = await cvRes.json();
+                    const gnData = await gnRes.json();
+                    const regData = await regRes.json();
+                    const pubData = await pubRes.json();
+
+                    setClinvar(cvData);
+                    setGnomad(gnData);
+                    setRegulatory(regData);
+                    setPapers(pubData.pubmed || []);
+                    setVariant(rsid);
+                    
+                    // Reset chatbot with system greeting
+                    setChatMessages([
+                        { role: "assistant", text: `Hello! I am your Genora AI assistant. I have loaded annotations for **${cvData.rsid}** (${cvData.gene}). Ask me anything about its pathogenicity, allele frequency across populations, or transcription factor binding changes.` }
+                    ]);
+                } catch (e) {
+                    setError(`Failed to retrieve variant data for '${rsid}': ${e.message}`);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            // Load default variant on start
+            useEffect(() => {
+                fetchVariantData("rs334");
+            }, []);
+
+            const handleAskAIFromLit = (promptText) => {
+                setActiveTab("chatbot");
+                // Wait briefly for tab switch, then send
+                setTimeout(() => {
+                    const chatInput = document.querySelector('form input');
+                    if (chatInput) {
+                        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set;
+                        nativeInputValueSetter.call(chatInput, promptText);
+                        const ev2 = new Event('input', { bubbles: true });
+                        chatInput.dispatchEvent(ev2);
+                    }
+                }, 100);
+            };
+
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+                    <Header onSearch={fetchVariantData} loading={loading} />
+
+                    <main style={{ flex: 1, padding: '40px', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+                        {/* Sidebar Rail */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '220px' }}>
+                            <button className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab("dashboard")}>
+                                <i className="fa-solid fa-chart-line"></i> Dashboard
+                            </button>
+                            <button className={`tab-btn ${activeTab === 'regulatory' ? 'active' : ''}`} onClick={() => setActiveTab("regulatory")}>
+                                <i className="fa-solid fa-dna"></i> Regulatory
+                            </button>
+                            <button className={`tab-btn ${activeTab === 'literature' ? 'active' : ''}`} onClick={() => setActiveTab("literature")}>
+                                <i className="fa-solid fa-book"></i> PubMed
+                            </button>
+                            <button className={`tab-btn ${activeTab === 'chatbot' ? 'active' : ''}`} onClick={() => setActiveTab("chatbot")}>
+                                <i className="fa-solid fa-comment-dots"></i> AI Assistant
+                            </button>
+                        </div>
+
+                        {/* View Content Area */}
+                        <div style={{ flex: 1, minWidth: '400px' }}>
+                            {error && (
+                                <div className="glass-panel" style={{ padding: '20px', borderColor: 'var(--coral-red)', backgroundColor: 'rgba(255,123,110,0.05)', color: 'var(--coral-red)', marginBottom: '20px' }}>
+                                    <i className="fa-solid fa-circle-exclamation" style={{ marginRight: '8px' }}></i> {error}
+                                </div>
+                            )}
+
+                            {loading && !clinvar ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', justifyContent: 'center', height: '300px' }}>
+                                    <i className="fa-solid fa-dna fa-spin" style={{ color: 'var(--accent-glow)', fontSize: '3rem' }}></i>
+                                    <span style={{ color: 'var(--text-secondary)', fontWeight: '500' }}>Fetching clinical and population databases...</span>
+                                </div>
+                            ) : (
+                                clinvar && gnomad && regulatory && (
+                                    <>
+                                        {activeTab === 'dashboard' && <DashboardView clinvar={clinvar} gnomad={gnomad} regulatory={regulatory} />}
+                                        {activeTab === 'regulatory' && <RegulatoryView regulatory={regulatory} />}
+                                        {activeTab === 'literature' && <LiteratureView papers={papers} onAskAI={handleAskAIFromLit} />}
+                                        {activeTab === 'chatbot' && <ChatView variant={variant} clinvar={clinvar} gnomad={gnomad} regulatory={regulatory} papers={papers} messages={chatMessages} setMessages={setChatMessages} />}
+                                    </>
+                                )
+                            )}
+                        </div>
+                    </main>
+
+                    <footer style={{
+                        padding: '24px',
+                        textAlign: 'center',
+                        borderTop: '1px solid var(--panel-border)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '0.85rem',
+                        fontWeight: '500'
+                    }}>
+                        <p>&copy; 2026 Genora &bull; Powered by the Auracle Autonomous Factory</p>
+                    </footer>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById("root"));
+        root.render(<App />);
+    </script>
 </body>
 </html>
